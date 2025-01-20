@@ -1,0 +1,5 @@
+C:\Users\rubin\Demo-Manager\obj\Debug\net7.0-windows\DemoManager.csproj.AssemblyReference.cache
+C:\Users\rubin\Demo-Manager\obj\Debug\net7.0-windows\DemoManager.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\rubin\Demo-Manager\obj\Debug\net7.0-windows\DemoManager.AssemblyInfoInputs.cache
+C:\Users\rubin\Demo-Manager\obj\Debug\net7.0-windows\DemoManager.AssemblyInfo.cs
+C:\Users\rubin\Demo-Manager\obj\Debug\net7.0-windows\DemoManager.csproj.CoreCompileInputs.cache
