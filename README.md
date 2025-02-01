@@ -13,6 +13,7 @@ A modern demo manager for Counter-Strike 2 with a clean Material Design interfac
 - ✏️ Rename demos
 - 🗑️ Delete demos
 - 🔄 Auto-refresh
+- 📥 Drag and drop ZIP files to extract demos
 
 ## Installation
 
@@ -38,6 +39,7 @@ A modern demo manager for Counter-Strike 2 with a clean Material Design interfac
    - 📋 Copy Demo: Copy to clipboard
    - 🗑️ Delete: Remove selected demo
 4. Toggle dark/light theme with the moon icon
+5. Drag and drop ZIP files containing .dem files to automatically extract them to your demo folder
 
 ## Support
 

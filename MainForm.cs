@@ -32,6 +32,9 @@ namespace DemoManager
         {
             InitializeComponent();
 
+            // Set the form icon
+            this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+
             // Initialize MaterialSkinManager
             materialSkinManager = MaterialSkinManager.Instance;
             materialSkinManager.AddFormToManage(this);
@@ -43,6 +46,14 @@ namespace DemoManager
                 Accent.LightBlue200,
                 TextShade.WHITE
             );
+
+            // Enable drag and drop for both form and demo list
+            this.AllowDrop = true;
+            this.DragEnter += MainForm_DragEnter;
+            this.DragDrop += MainForm_DragDrop;
+            demoList.AllowDrop = true;
+            demoList.DragEnter += MainForm_DragEnter;
+            demoList.DragDrop += MainForm_DragDrop;
 
             SetupUI();
             FindCS2Path();
@@ -112,8 +123,6 @@ namespace DemoManager
             demoList.View = View.Details;
             demoList.Columns.Add(new ColumnHeader { Text = "Type", Width = 50 });
             demoList.Columns.Add(new ColumnHeader { Text = "Name", Width = -2 });
-            demoList.DragEnter += DemoList_DragEnter;
-            demoList.DragDrop += DemoList_DragDrop;
             demoList.SelectedIndexChanged += DemoList_SelectedIndexChanged;
 
             // Button panel
@@ -278,8 +287,12 @@ namespace DemoManager
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 MaximizeBox = false,
                 MinimizeBox = false,
-                StartPosition = FormStartPosition.CenterParent
+                StartPosition = FormStartPosition.CenterParent,
+                ShowInTaskbar = false,
+                Sizable = false
             };
+
+            materialSkinManager.AddFormToManage(inputDialog);
 
             var label = new MaterialLabel
             {
@@ -290,9 +303,10 @@ namespace DemoManager
 
             var textBox = new MaterialTextBox2
             {
-                Text = Path.GetFileNameWithoutExtension(oldName),
                 Dock = DockStyle.Top,
-                Padding = new Padding(10)
+                Padding = new Padding(10),
+                Text = Path.GetFileNameWithoutExtension(oldName),
+                UseTallSize = true
             };
 
             var buttonPanel = new FlowLayoutPanel
@@ -500,8 +514,11 @@ namespace DemoManager
                     MaximizeBox = false,
                     MinimizeBox = false,
                     StartPosition = FormStartPosition.CenterParent,
-                    ShowInTaskbar = false
+                    ShowInTaskbar = false,
+                    Sizable = false
                 };
+
+                materialSkinManager.AddFormToManage(progressForm);
 
                 var progressLabel = new MaterialLabel
                 {
@@ -619,22 +636,144 @@ namespace DemoManager
 
         private void FindCS2Path()
         {
-            string steamPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                "Steam", "steamapps", "common", "Counter-Strike Global Offensive", "game", "csgo");
+            // List of possible Steam installation paths
+            var possiblePaths = new List<string>
+            {
+                // Default Steam installation path
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                    "Steam", "steamapps", "common", "Counter-Strike Global Offensive", "game", "csgo"),
+                
+                // Common alternative Steam library paths
+                Path.Combine("D:", "Steam", "steamapps", "common", "Counter-Strike Global Offensive", "game", "csgo"),
+                Path.Combine("D:", "SteamLibrary", "steamapps", "common", "Counter-Strike Global Offensive", "game", "csgo"),
+            };
 
-            if (Directory.Exists(steamPath))
+            // Add all possible drive letters
+            foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
             {
-                csgoPath = steamPath;
-                demoPath = Path.Combine(csgoPath);
-                pathLabel.Text = $"Demo Path: {demoPath}";
-                statusLabel.Text = "CS2 installation found";
+                var driveLetter = drive.Name[0];
+                if (driveLetter != 'C' && driveLetter != 'D') // Already checked C: and D:
+                {
+                    possiblePaths.Add(Path.Combine($"{driveLetter}:", "Steam", "steamapps", "common", "Counter-Strike Global Offensive", "game", "csgo"));
+                    possiblePaths.Add(Path.Combine($"{driveLetter}:", "SteamLibrary", "steamapps", "common", "Counter-Strike Global Offensive", "game", "csgo"));
+                }
             }
-            else
+
+            // Try to find CS2 in any of these locations
+            foreach (var path in possiblePaths)
             {
-                statusLabel.Text = "CS2 installation not found. Please select demo folder manually.";
-                pathLabel.Text = "Demo Path: Not found";
+                if (Directory.Exists(path))
+                {
+                    csgoPath = path;
+                    demoPath = Path.Combine(csgoPath);
+                    pathLabel.Text = $"Demo Path: {demoPath}";
+                    statusLabel.Text = "CS2 installation found";
+                    return;
+                }
             }
+
+            // If we get here, CS2 wasn't found in any location
+            statusLabel.Text = "CS2 installation not found. Please select demo folder manually.";
+            pathLabel.Text = "Demo Path: Not found";
+        }
+
+        private void MainForm_DragEnter(object? sender, DragEventArgs e)
+        {
+            Console.WriteLine("DragEnter event fired");
+            
+            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
+            {
+                var data = e.Data.GetData(DataFormats.FileDrop);
+                if (data is string[] files && 
+                    files.Length > 0 && 
+                    files.All(f => Path.GetExtension(f).Equals(".zip", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Console.WriteLine("Valid ZIP file detected");
+                    e.Effect = DragDropEffects.Copy;
+                    return;
+                }
+            }
+            e.Effect = DragDropEffects.None;
+        }
+
+        private void MainForm_DragDrop(object? sender, DragEventArgs e)
+        {
+            Console.WriteLine("DragDrop event fired");
+            
+            if (string.IsNullOrEmpty(demoPath))
+            {
+                MaterialMessageBox.Show(
+                    "Please select a demo folder first.", 
+                    "No Demo Folder",
+                    MessageBoxButtons.OK,
+                    FlexibleMaterialForm.ButtonsPosition.Center);
+                return;
+            }
+
+            var data = e.Data?.GetData(DataFormats.FileDrop);
+            if (data is not string[] files)
+            {
+                Console.WriteLine("No valid files in drop");
+                return;
+            }
+
+            Console.WriteLine($"Processing {files.Length} dropped files");
+            foreach (string zipFile in files)
+            {
+                try
+                {
+                    Console.WriteLine($"Processing ZIP file: {zipFile}");
+                    using (var archive = ZipArchive.Open(zipFile))
+                    {
+                        if (archive == null) 
+                        {
+                            Console.WriteLine("Archive is null");
+                            continue;
+                        }
+
+                        foreach (var entry in archive.Entries.Where(e => e.Key.EndsWith(".dem", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            string targetPath = Path.Combine(demoPath, Path.GetFileName(entry.Key));
+                            Console.WriteLine($"Extracting: {entry.Key} to {targetPath}");
+                            
+                            // Check if file already exists
+                            if (File.Exists(targetPath))
+                            {
+                                var result = MaterialMessageBox.Show(
+                                    $"File {Path.GetFileName(entry.Key)} already exists. Do you want to overwrite it?",
+                                    "File Exists",
+                                    MessageBoxButtons.YesNo,
+                                    FlexibleMaterialForm.ButtonsPosition.Center);
+                                
+                                if (result != DialogResult.Yes)
+                                {
+                                    continue;
+                                }
+                            }
+
+                            // Extract the demo file
+                            entry.WriteToFile(targetPath, new ExtractionOptions { Overwrite = true });
+                            if (statusLabel != null)
+                            {
+                                statusLabel.Text = $"Extracted: {Path.GetFileName(entry.Key)}";
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error: {ex.Message}");
+                    MaterialMessageBox.Show(
+                        $"Error extracting {Path.GetFileName(zipFile)}: {ex.Message}",
+                        "Extraction Error",
+                        MessageBoxButtons.OK,
+                        FlexibleMaterialForm.ButtonsPosition.Center);
+                }
+            }
+
+            // Refresh the demo list after extraction
+            LoadDemos();
         }
     }
 }
